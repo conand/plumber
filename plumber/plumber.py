@@ -19,6 +19,9 @@ from angr.procedures.stubs.format_parser import FormatParser
 
 
 
+_l = logging.getLogger(name=__name__)
+_l.setLevel(logging.WARNING)
+
 # run the tracer, grabbing the crash state
 remove_options = {so.TRACK_REGISTER_ACTIONS, so.TRACK_TMP_ACTIONS, so.TRACK_JMP_ACTIONS,
                   so.ACTION_DEPS, so.TRACK_CONSTRAINT_ACTIONS, so.LAZY_SOLVES, so.SIMPLIFY_MEMORY_WRITES,
@@ -58,11 +61,13 @@ class Plumber(object):
         self.angr_project_bow = archr.arsenal.angrProjectBow(self.target, dsb)
         self.project = self.angr_project_bow.fire()
 
+
         class myprintf(FormatParser):
             def run(self):
                 data_address = self.state.solver.eval(self.state.regs.rsi)
-                if self.state.memory._read_from(data_address, 8).symbolic:
-                    print("LEAK DETECTED!")
+                data_value = self.state.memory._read_from(data_address, 8)
+                if data_value.symbolic:
+                    _l.warning("Leak of sensitive data detected! {}".format(data_value))
 
         self.project.hook_symbol('printf', myprintf())
 
@@ -94,10 +99,17 @@ class Plumber(object):
         self._t = r.tracer_technique(keep_predecessors=2)
         simgr.use_technique(self._t)
 
-        simgr.run()
+        try:
+            simgr.run()
+        except Exception:  # remember to check the "No more successors"
+            pass
 
-        print("LOL")
 
+        pov = self.pov()
+        print(pov)
+
+
+        _l.warn("Plumber done")
         #found = simgr.found[0]
 
         #stdout1 = found.posix.dumps(1)
@@ -109,7 +121,20 @@ class Plumber(object):
         # TODO
 
 
+    def pov(self):
+        pov = """
+from subprocess import Popen, PIPE
 
+def main():
+    p = Popen(['./leak_mid', 'secret', 'password'], stdout=PIPE, stdin=PIPE)
+    out = p.communicate(input={})[0]
+    print('PRIVDATA=', out)
+
+if __name__ == '__main__':
+    main()    
+        """.format(self.payload)
+
+        return pov
 
         
 
