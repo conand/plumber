@@ -105,6 +105,7 @@ class Plumber(object):
             pass
 
         _l.warn("Plumber done")
+
         #found = simgr.found[0]
 
         #stdout1 = found.posix.dumps(1)
@@ -121,13 +122,13 @@ class Plumber(object):
 from subprocess import Popen, PIPE
 
 def main():
-    p = Popen(['./leak_mid', 'secret', 'password'], stdout=PIPE, stdin=PIPE)
+    p = Popen(['{}', 'secret', 'password'], stdout=PIPE, stdin=PIPE)
     out = p.communicate(input={})[0]
     print('PRIVDATA=' + out.decode('utf-8'))
 
 if __name__ == '__main__':
     main()    
-        """.format(self.payload)
+        """.format(self.target.target_path,self.payload)
 
         with open("./pov.py", "w") as pov_poc:
             pov_poc.write(pov)
