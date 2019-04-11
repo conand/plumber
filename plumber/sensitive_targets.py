@@ -18,18 +18,16 @@ class SensitiveTarget(ABC):
 
 class ArgvSensitiveTarget(SensitiveTarget):
 
-    def __init__(self, argv_idx, size=32):
+    def __init__(self, argv_idx):
         super().__init__()
         self.argv_idx = argv_idx
-        self.size = size
 
     def taint_state(self, state):
-
-        for i, argv in enumerate(state.posix.argv):
-            if i == self.argv_idx:
-                state.posix.argv[i] = claripy.BVS('sensitive_argv{}'.format(self.argv_idx), self.size)
-            else:
-                state.posix.argv[i] = claripy.BVV(state.posix.argv[i])
+        argv_start_address = state.se.eval(state.posix.argv)
+        target_argv_pointer = argv_start_address + state.arch.bytes * self.argv_idx
+        target_argv_address = state.mem[target_argv_pointer].long.concrete
+        original_argv_size = len(state.mem[target_argv_address].string.concrete)
+        state.memory.store(target_argv_address, claripy.BVS('sensitive_argv{}'.format(self.argv_idx), 8*original_argv_size) )
 
 
 class FileSensitiveTarget(SensitiveTarget):

@@ -64,17 +64,7 @@ class Plumber(object):
             remove_options=remove_options,
         )
 
-        # initialize other settings
-        initial_state.register_plugin('posix', SimSystemPosix(
-            stdin=SimFileStream(name='stdin', ident='aeg_stdin'),
-            stdout=SimFileStream(name='stdout'),
-            stderr=SimFileStream(name='stderr'),
-            argc=len(target.target_args),
-            argv=target.target_args,
-            environ=initial_state.posix.environ,
-            auxv=initial_state.posix.auxv,
-            socket_queue=None,
-        ))
+
 
         # Now, since we want to detect leaks in the output of the program, we have to define as symbolic
         # the data that we received as Sensitive from REX.
