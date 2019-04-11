@@ -2,6 +2,8 @@ from abc import ABC
 from abc import abstractmethod
 
 import claripy
+from angr.state_plugins.posix import SimSystemPosix
+from angr.storage.file import SimFileStream
 
 
 class SensitiveTarget(ABC):
@@ -22,6 +24,7 @@ class ArgvSensitiveTarget(SensitiveTarget):
         self.size = size
 
     def taint_state(self, state):
+
         for i, argv in enumerate(state.posix.argv):
             if i == self.argv_idx:
                 state.posix.argv[i] = claripy.BVS('sensitive_argv{}'.format(self.argv_idx), self.size)

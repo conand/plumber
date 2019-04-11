@@ -15,6 +15,8 @@ from angr import sim_options as so
 from angr.state_plugins.posix import SimSystemPosix
 from angr.storage.file import SimFileStream
 
+
+
 # run the tracer, grabbing the crash state
 remove_options = {so.TRACK_REGISTER_ACTIONS, so.TRACK_TMP_ACTIONS, so.TRACK_JMP_ACTIONS,
                   so.ACTION_DEPS, so.TRACK_CONSTRAINT_ACTIONS, so.LAZY_SOLVES, so.SIMPLIFY_MEMORY_WRITES,
@@ -91,6 +93,8 @@ class Plumber(object):
         simgr.use_technique(self._t)
 
         simgr.run()
+
+        print("LOL")
 
         #found = simgr.found[0]
 
