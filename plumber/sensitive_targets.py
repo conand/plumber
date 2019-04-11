@@ -22,7 +22,11 @@ class ArgvSensitiveTarget(SensitiveTarget):
         self.size = size
 
     def taint_state(self, state):
-        state.posix.argv[self.argv_idx] = claripy.BVS('sensitive_argv{}'.format(self.argv_idx), self.size)
+        for i, argv in enumerate(state.posix.argv):
+            if i == self.argv_idx:
+                state.posix.argv[i] = claripy.BVS('sensitive_argv{}'.format(self.argv_idx), self.size)
+            else:
+                state.posix.argv[i] = claripy.BVV(state.posix.argv[i])
 
 
 class FileSensitiveTarget(SensitiveTarget):
