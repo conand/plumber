@@ -2,8 +2,6 @@ from abc import ABC
 from abc import abstractmethod
 
 import claripy
-from angr.state_plugins.posix import SimSystemPosix
-from angr.storage.file import SimFileStream
 
 
 class SensitiveTarget(ABC):
