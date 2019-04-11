@@ -104,9 +104,8 @@ class Plumber(object):
         except Exception:  # remember to check the "No more successors"
             pass
 
-        self.pov()
-
         _l.warn("Plumber done")
+
         #found = simgr.found[0]
 
         #stdout1 = found.posix.dumps(1)
