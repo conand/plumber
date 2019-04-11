@@ -15,6 +15,8 @@ from angr import sim_options as so
 from angr.state_plugins.posix import SimSystemPosix
 from angr.storage.file import SimFileStream
 
+from angr.procedures.stubs.format_parser import FormatParser
+
 
 
 # run the tracer, grabbing the crash state
@@ -55,6 +57,16 @@ class Plumber(object):
         dsb = archr.arsenal.DataScoutBow(self.target)
         self.angr_project_bow = archr.arsenal.angrProjectBow(self.target, dsb)
         self.project = self.angr_project_bow.fire()
+
+        class myprintf(FormatParser):
+            def run(self):
+                data_address = self.state.solver.eval(self.state.regs.rsi)
+                if self.state.memory._read_from(data_address, 8).symbolic:
+                    print("LEAK DETECTED!")
+
+        self.project.hook_symbol('printf', myprintf())
+
+
         state_bow = archr.arsenal.angrStateBow(self.target, self.angr_project_bow)
 
         # Let's create an initial state

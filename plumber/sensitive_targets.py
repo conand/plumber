@@ -2,9 +2,13 @@ from abc import ABC
 from abc import abstractmethod
 
 import claripy
+import logging
 from angr.state_plugins.posix import SimSystemPosix
 from angr.storage.file import SimFileStream
 
+
+_l = logging.getLogger(name=__name__)
+_l.setLevel(logging.DEBUG)
 
 class SensitiveTarget(ABC):
 
@@ -27,7 +31,11 @@ class ArgvSensitiveTarget(SensitiveTarget):
         target_argv_pointer = argv_start_address + state.arch.bytes * self.argv_idx
         target_argv_address = state.mem[target_argv_pointer].long.concrete
         original_argv_size = len(state.mem[target_argv_address].string.concrete)
+
+        _l.debug("Storing sensitive data at {}, size of sensitive data is {}".format(hex(target_argv_address), 8*original_argv_size))
+
         state.memory.store(target_argv_address, claripy.BVS('sensitive_argv{}'.format(self.argv_idx), 8*original_argv_size) )
+
 
 
 class FileSensitiveTarget(SensitiveTarget):
