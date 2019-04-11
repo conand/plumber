@@ -41,26 +41,26 @@ class Plumber(object):
         self.target = target  # type: archr.targets.Target
         self.payload = payload # interesting input that we believe will trigger the memory leak.
         self.sensitive = sensitive # specification of what is considered sensitive in our binary ( f.i. argv[2], access to a file called /token, ... )
+
+        # First thing, let's create a trace of the program under the concrete input we received.
+        # If there are any command line arguments to the program they have been included during the
+        # Creation of the target.
         self.tracer_bow = archr.arsenal.QEMUTracerBow(self.target)
+        r = self.tracer_bow.fire(testcase=self.payload, save_core=False)
 
-        # Initialize an angr Project
+
+        # Now we have to setup a an angr project based on the concrete target.
         dsb = archr.arsenal.DataScoutBow(self.target)
-
         self.angr_project_bow = archr.arsenal.angrProjectBow(self.target, dsb)
         self.project = self.angr_project_bow.fire()
-
         state_bow = archr.arsenal.angrStateBow(self.target, self.angr_project_bow)
 
+        # Let's create an initial state
         initial_state = state_bow.fire(
             mode='tracing',
             add_options=add_options,
             remove_options=remove_options,
         )
-
-
-        stdin_file = None  # the file that will be fd 0
-        input_file = None  # the file that we want to preconstrain
-        socket_queue = None
 
         # initialize other settings
         initial_state.register_plugin('posix', SimSystemPosix(
@@ -71,8 +71,15 @@ class Plumber(object):
             argv=target.target_args,
             environ=initial_state.posix.environ,
             auxv=initial_state.posix.auxv,
-            socket_queue=socket_queue,
+            socket_queue=None,
         ))
+
+        # Now, since we want to detect leaks in the output of the program, we have to define as symbolic
+        # the data that we received as Sensitive from REX.
+        # This is done using the taint_state method of the SensitiveTarget object, that will make sure
+        # that something sensitive will be marked as symbolic.
+        for sensitive_target in sensitive:
+            sensitive_target.taint_state(initial_state)
 
         simgr = self.project.factory.simulation_manager(
             initial_state,
@@ -80,12 +87,23 @@ class Plumber(object):
             hierarchy=False,
         )
 
-        r = self.tracer_bow.fire(testcase=self.payload, save_core=False)
-
         self._t = r.tracer_technique(keep_predecessors=2)
         simgr.use_technique(self._t)
 
         simgr.run()
+
+        #found = simgr.found[0]
+
+        #stdout1 = found.posix.dumps(1)
+
+        # Here check if the stdout contains something symbolic, if yes, well we have
+        # a leak.
+        # If there are multiple symbolic sources we have to understand what are we leaking.
+
+        # TODO
+
+
+
 
         
 
