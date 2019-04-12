@@ -46,8 +46,8 @@ class Plumber(object):
     def __init__(self, target, payload, sensitive):
 
         self.target = target  # type: archr.targets.Target
-        self.payload = payload # interesting input that we believe will trigger the memory leak.
-        self.sensitive = sensitive # specification of what is considered sensitive in our binary ( f.i. argv[2], access to a file called /token, ... )
+        self.payload = payload  # interesting input that we believe will trigger the memory leak.
+        self.sensitive = sensitive  # specification of what is considered sensitive in our binary ( f.i. argv[2], access to a file called /token, ... )
 
         # First thing, let's create a trace of the program under the concrete input we received.
         # If there are any command line arguments to the program they have been included during the
@@ -68,9 +68,9 @@ class Plumber(object):
                 data_value = self.state.memory._read_from(data_address, 8)
                 if data_value.symbolic:
                     _l.warning("Leak of sensitive data detected! {}".format(data_value))
-
+        
+        
         self.project.hook_symbol('printf', myprintf())
-
 
         state_bow = archr.arsenal.angrStateBow(self.target, self.angr_project_bow)
 
@@ -80,8 +80,6 @@ class Plumber(object):
             add_options=add_options,
             remove_options=remove_options,
         )
-
-
 
         # Now, since we want to detect leaks in the output of the program, we have to define as symbolic
         # the data that we received as Sensitive from REX.
@@ -106,6 +104,8 @@ class Plumber(object):
 
         _l.warn("Plumber done")
 
+        
+
         #found = simgr.found[0]
 
         #stdout1 = found.posix.dumps(1)
@@ -118,11 +118,13 @@ class Plumber(object):
 
 
     def pov(self):
+
+
         pov = """
 from subprocess import Popen, PIPE
 
 def main():
-    p = Popen(['{}', 'secret', 'password'], stdout=PIPE, stdin=PIPE)
+    p = Popen(['{}', 'secret_of_life', 'supersecretpassword'], stdout=PIPE, stdin=PIPE)
     out = p.communicate(input={})[0]
     print('PRIVDATA=' + out.decode('utf-8'))
 
