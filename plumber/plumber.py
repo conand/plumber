@@ -116,12 +116,12 @@ if __name__ == '__main__':
             pov = """
 from subprocess import Popen, PIPE
 def main():
-    p = Popen(['{}', 'secret_of_life', 'password'], stdout=PIPE, stdin=PIPE)
+    p = Popen(['{}', '{}', '{}'], stdout=PIPE, stdin=PIPE)
     out = p.communicate(input={})[0]
     print('PRIVDATA=' + out.decode('utf-8').split("\\n")[-1])
 if __name__ == '__main__':
     main()
-            """.format(self.target.target_path, self.payload)
+            """.format(self.target.target_path, self.target.main_binary_args[1], self.target.main_binary_args[2], self.payload)
 
         with open("./pov.py", "w") as pov_poc:
             pov_poc.write(pov)
