@@ -1,9 +1,3 @@
-/*
- Compiled with 
-
- gcc -no-pie -fno-stack-protector -z execstack -o example_1_nonet.bin example_1_nonet.c
-*/
-
 #include <stdio.h>
 #include <string.h>
 
@@ -38,7 +32,7 @@ int main(int argc, char *argv[]){
    puts("Input the password");
 
    // receiving the user guess
-   read(0, req.buffer, 1024); // <------------ VULNERABILITY HERE
+   read(0, req.buffer, 300); // <------------ VULNERABILITY HERE
 
    // Authenticate request
    if (!strncmp(req.buffer, pswd, strlen(pswd)))

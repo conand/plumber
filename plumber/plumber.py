@@ -38,6 +38,7 @@ class Plumber(object):
         self.payload = payload  # interesting input that we believe will trigger the memory leak.
         self.sensitive = sensitive  # specification of what is considered sensitive in our binary ( f.i. argv[2], access to a file called /token, ... )
 
+        # flag to detect if we generated a valid leak and so if we should generate a pov
         self._exploitable = False
 
         # First thing, let's create a trace of the program under the concrete input we received.
@@ -46,14 +47,16 @@ class Plumber(object):
         self.tracer_bow = archr.arsenal.QEMUTracerBow(self.target)
         r = self.tracer_bow.fire(testcase=self.payload, save_core=False)
 
-
-        # Now we have to setup a an angr project based on the concrete target.
+        # Now we have to setup an angr project using the info we have in the archr environment.
         dsb = archr.arsenal.DataScoutBow(self.target)
         self.angr_project_bow = archr.arsenal.angrProjectBow(self.target, dsb)
         self.project = self.angr_project_bow.fire()
 
+        # As for now we support detecting leaks of sensitive stuff in a printf.
+        # The idea is to check if the function's parameters are symbolic or not, if yes we have a leak.
         self.project.hook_symbol('printf', myprintf())
 
+        # Let's get our initial state
         state_bow = archr.arsenal.angrStateBow(self.target, self.angr_project_bow)
 
         # Let's create an initial state
@@ -76,21 +79,18 @@ class Plumber(object):
             hierarchy=False,
         )
 
+        # Using the tracer exploration technique by following the QEMU trace
+        # collected before.
         self._t = r.tracer_technique(keep_predecessors=2)
         simgr.use_technique(self._t)
 
         try:
             simgr.run()
-        except Exception:  # remember to check the "No more successors"
+        except Exception:  # remember to check the "No more successors bug"
             pass
 
-        # Here check if the stdout contains something symbolic, if yes, well we have
-        # a leak.
-        # If there are multiple symbolic sources we have to understand what are we leaking.
-
+        # If we have any kind of leak this is exploitable!
         self._exploitable = any(leaks.values())
-
-        _l.warn("Plumber done")
 
     def exploitable(self):
         return self._exploitable
@@ -135,5 +135,5 @@ class myprintf(FormatParser):
         data_address = self.state.solver.eval(self.state.regs.rsi)
         data_value = self.state.memory._read_from(data_address, 8)
         if data_value.symbolic:
-            leaks['printf'] = True
+            leaks['printf'] = True # registering the leak
             _l.warning("Leak of sensitive data detected! {}".format(data_value))
