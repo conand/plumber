@@ -97,18 +97,33 @@ class Plumber(object):
 
     def pov(self):
 
+        if isinstance(self.target, archr.targets.DockerImageTarget):
 
-        pov = """
+            pov = """
+from subprocess import Popen, PIPE
+
+def main():
+    p = Popen(["docker", "run", "-i", "{}" ], stdin=PIPE, stdout=PIPE)               
+    out = p.communicate(input={})[0]
+    
+    print('PRIVDATA=' + out.decode('utf-8').split("\\n")[-1])
+
+if __name__ == '__main__':
+    main()
+            """.format(self.target.image_id, self.payload)
+        else:
+
+            pov = """
 from subprocess import Popen, PIPE
 
 def main():
     p = Popen(['{}', 'secret_of_life', 'supersecretpassword'], stdout=PIPE, stdin=PIPE)
     out = p.communicate(input={})[0]
-    print('PRIVDATA=' + out.decode('utf-8'))
+    print('PRIVDATA=' + out.decode('utf-8').split("\\n")[-1])
 
 if __name__ == '__main__':
     main()
-        """.format(self.target.target_path,self.payload)
+            """.format(self.target.target_path,self.payload)
 
         with open("./pov.py", "w") as pov_poc:
             pov_poc.write(pov)
