@@ -1,22 +1,9 @@
 
-import os
-import struct
-import tracer
-import random
 import logging
-from itertools import groupby
-import binascii
-
-import claripy
-import angr
 import archr
 
 from angr import sim_options as so
-from angr.state_plugins.posix import SimSystemPosix
-from angr.storage.file import SimFileStream
-
 from angr.procedures.stubs.format_parser import FormatParser
-
 
 
 _l = logging.getLogger(name=__name__)
@@ -30,16 +17,18 @@ add_options = {so.MEMORY_SYMBOLIC_BYTES_MAP, so.TRACK_ACTION_HISTORY, so.CONCRET
                so.CONCRETIZE_SYMBOLIC_FILE_READ_SIZES, so.TRACK_MEMORY_ACTIONS}
 
 
+leaks = {}
+
 '''
- Plumber will look for potential memory leaks of sensitive data 
+ Plumber will look for potential memory leaks of sensitive data
  inside the output of the program.
- 
+
  The sensitive data we are looking for are specified inside the sensitive object.
- 
+
  f.i. we want to see if argv[1] is inside the final output of the program, or a particular memory
- address content is disclosed inside the output. We are doing this by tracing the program inside 
+ address content is disclosed inside the output. We are doing this by tracing the program inside
  its environment and tuning up the QEMUTracer exploration technique according to what we are looking for.
- 
+
 '''
 class Plumber(object):
 
@@ -48,6 +37,8 @@ class Plumber(object):
         self.target = target  # type: archr.targets.Target
         self.payload = payload  # interesting input that we believe will trigger the memory leak.
         self.sensitive = sensitive  # specification of what is considered sensitive in our binary ( f.i. argv[2], access to a file called /token, ... )
+
+        self._exploitable = False
 
         # First thing, let's create a trace of the program under the concrete input we received.
         # If there are any command line arguments to the program they have been included during the
@@ -61,15 +52,6 @@ class Plumber(object):
         self.angr_project_bow = archr.arsenal.angrProjectBow(self.target, dsb)
         self.project = self.angr_project_bow.fire()
 
-
-        class myprintf(FormatParser):
-            def run(self):
-                data_address = self.state.solver.eval(self.state.regs.rsi)
-                data_value = self.state.memory._read_from(data_address, 8)
-                if data_value.symbolic:
-                    _l.warning("Leak of sensitive data detected! {}".format(data_value))
-        
-        
         self.project.hook_symbol('printf', myprintf())
 
         state_bow = archr.arsenal.angrStateBow(self.target, self.angr_project_bow)
@@ -102,20 +84,16 @@ class Plumber(object):
         except Exception:  # remember to check the "No more successors"
             pass
 
-        _l.warn("Plumber done")
-
-        
-
-        #found = simgr.found[0]
-
-        #stdout1 = found.posix.dumps(1)
-
         # Here check if the stdout contains something symbolic, if yes, well we have
         # a leak.
         # If there are multiple symbolic sources we have to understand what are we leaking.
 
-        # TODO
+        self._exploitable = any(leaks.values())
 
+        _l.warn("Plumber done")
+
+    def exploitable(self):
+        return self._exploitable
 
     def pov(self):
 
@@ -129,7 +107,7 @@ def main():
     print('PRIVDATA=' + out.decode('utf-8'))
 
 if __name__ == '__main__':
-    main()    
+    main()
         """.format(self.target.target_path,self.payload)
 
         with open("./pov.py", "w") as pov_poc:
@@ -137,5 +115,12 @@ if __name__ == '__main__':
 
         return pov
 
-        
 
+class myprintf(FormatParser):
+
+    def run(self):
+        data_address = self.state.solver.eval(self.state.regs.rsi)
+        data_value = self.state.memory._read_from(data_address, 8)
+        if data_value.symbolic:
+            leaks['printf'] = True
+            _l.warning("Leak of sensitive data detected! {}".format(data_value))
