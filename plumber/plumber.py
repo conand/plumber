@@ -1,10 +1,17 @@
-
 import logging
 import archr
 
 from angr import sim_options as so
 from angr.procedures.stubs.format_parser import FormatParser
 
+
+# List of SimProc we want to taint, we want to this dynamically based on
+# some sort of Plumber config file.
+from angr.procedures.libc.printf import printf
+from angr.procedures.libc.puts import puts
+
+
+import plumber.leak_detectors
 
 _l = logging.getLogger(name=__name__)
 _l.setLevel(logging.WARNING)
@@ -16,24 +23,22 @@ remove_options = {so.TRACK_REGISTER_ACTIONS, so.TRACK_TMP_ACTIONS, so.TRACK_JMP_
 add_options = {so.MEMORY_SYMBOLIC_BYTES_MAP, so.TRACK_ACTION_HISTORY, so.CONCRETIZE_SYMBOLIC_WRITE_SIZES,
                so.CONCRETIZE_SYMBOLIC_FILE_READ_SIZES, so.TRACK_MEMORY_ACTIONS}
 
-
 leaks = {}
 
-'''
- Plumber will look for potential memory leaks of sensitive data
- inside the output of the program.
 
- The sensitive data we are looking for are specified inside the sensitive object.
-
- f.i. we want to see if argv[1] is inside the final output of the program, or a particular memory
- address content is disclosed inside the output. We are doing this by tracing the program inside
- its environment and tuning up the QEMUTracer exploration technique according to what we are looking for.
-
-'''
 class Plumber(object):
+    '''
+     Plumber will look for potential memory leaks of sensitive data
+     inside the output of the program.
 
+     The sensitive data we are looking for are specified inside the sensitive object.
+
+     f.i. we want to see if argv[1] is inside the final output of the program, or a particular memory
+     address content is disclosed inside the output. We are doing this by tracing the program inside
+     its environment and tuning up the QEMUTracer exploration technique according to what we are looking for.
+
+    '''
     def __init__(self, target, payload, sensitive):
-
         self.target = target  # type: archr.targets.Target
         self.payload = payload  # interesting input that we believe will trigger the memory leak.
         self.sensitive = sensitive  # specification of what is considered sensitive in our binary ( f.i. argv[2], access to a file called /token, ... )
@@ -45,16 +50,18 @@ class Plumber(object):
         # If there are any command line arguments to the program they have been included during the
         # Creation of the target.
         self.tracer_bow = archr.arsenal.QEMUTracerBow(self.target)
+
+        # Let's initialize all the leak_detector_decorators for all the function we are interested on.
+        printf.run = plumber.leak_detectors.printf.taint(printf.run)
+        puts.run = plumber.leak_detectors.puts.taint(puts.run)
+
+    def run(self):
         r = self.tracer_bow.fire(testcase=self.payload, save_core=False)
 
         # Now we have to setup an angr project using the info we have in the archr environment.
         dsb = archr.arsenal.DataScoutBow(self.target)
         self.angr_project_bow = archr.arsenal.angrProjectBow(self.target, dsb)
         self.project = self.angr_project_bow.fire()
-
-        # As for now we support detecting leaks of sensitive stuff in a printf.
-        # The idea is to check if the function's parameters are symbolic or not, if yes we have a leak.
-        self.project.hook_symbol('printf', myprintf())
 
         # Let's get our initial state
         state_bow = archr.arsenal.angrStateBow(self.target, self.angr_project_bow)
@@ -70,7 +77,7 @@ class Plumber(object):
         # the data that we received as Sensitive from REX.
         # This is done using the taint_state method of the SensitiveTarget object, that will make sure
         # that something sensitive will be marked as symbolic.
-        for sensitive_target in sensitive:
+        for sensitive_target in self.sensitive:
             sensitive_target.taint_state(initial_state)
 
         simgr = self.project.factory.simulation_manager(
@@ -121,19 +128,10 @@ def main():
     print('PRIVDATA=' + out.decode('utf-8').split("\\n")[-1])
 if __name__ == '__main__':
     main()
-            """.format(self.target.target_path, self.target.main_binary_args[1], self.target.main_binary_args[2], self.payload)
+            """.format(self.target.target_path, self.target.main_binary_args[1], self.target.main_binary_args[2],
+                       self.payload)
 
         with open("./pov.py", "w") as pov_poc:
             pov_poc.write(pov)
 
         return pov
-
-
-class myprintf(FormatParser):
-
-    def run(self):
-        data_address = self.state.solver.eval(self.state.regs.rsi)
-        data_value = self.state.memory._read_from(data_address, 8)
-        if data_value.symbolic:
-            leaks['printf'] = True # registering the leak
-            _l.warning("Leak of sensitive data detected! {}".format(data_value))

@@ -20,6 +20,9 @@ class SensitiveTarget(ABC):
         pass
 
 
+'''
+ Set symbolic the arguments passed to the binary.
+'''
 class ArgvSensitiveTarget(SensitiveTarget):
 
     def __init__(self, argv_idx):
