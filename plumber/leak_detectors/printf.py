@@ -4,6 +4,7 @@ import logging
 l = logging.getLogger(name=__name__)
 
 
+# TODO: generalize to 32/64 bits
 def taint(fn):
 
     def tainted_fn(*args, **kwargs):

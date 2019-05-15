@@ -82,8 +82,8 @@ class Plumber(object):
         for sensitive_target in self.sensitive:
             sensitive_target.taint_state(initial_state)
 
-        # Initialize the global list of leaks detected!
-        # This list will be populated by the leak_detectors
+        # Initialize the global tuple of leaks detected!
+        # This will be populated by the leak_detectors decorators.
         initial_state.globals["leaks"] = ()
 
         simgr = self.project.factory.simulation_manager(
