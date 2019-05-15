@@ -8,7 +8,14 @@ from angr.procedures.stubs.format_parser import FormatParser
 # List of SimProc we want to taint, we want to this dynamically based on
 # some sort of Plumber config file.
 from angr.procedures.libc.printf import printf
+from angr.procedures.libc.fprintf import fprintf
+from angr.procedures.libc.sprintf import sprintf
+from angr.procedures.libc.snprintf import snprintf
+from angr.procedures.libc.vsnprintf import vsnprintf
 from angr.procedures.libc.puts import puts
+from angr.procedures.libc.fputs import fputs
+
+from angr.procedures.posix.send import send
 
 
 import plumber.leak_detectors
@@ -50,12 +57,20 @@ class Plumber(object):
         self.tracer_bow = archr.arsenal.QEMUTracerBow(self.target)
 
         # Let's initialize all the leak_detector_decorators for all the function we are interested on.
-        # We will automatize this based on a Plumber configuration file.
+        # TODO: We will automatize this based on a Plumber configuration file.
         printf.run = plumber.leak_detectors.printf.taint(printf.run)
         puts.run = plumber.leak_detectors.puts.taint(puts.run)
 
-    def run(self):
+        # TODO: implement these leak_detectors
+        send.run = plumber.leak_detectors.send.taint(send.run)
+        fprintf.run = plumber.leak_detectors.fprintf.taint(fprintf.run)
+        sprintf.run = plumber.leak_detectors.sprintf.taint(sprintf.run)
+        snprintf.run = plumber.leak_detectors.snprintf.taint(snprintf.run)
+        vsnprintf.run = plumber.leak_detectors.vsnprintf.taint(vsnprintf.run)
+        fputs.run = plumber.leak_detectors.fputs.taint(fputs.run)
 
+
+    def run(self):
         r = self.tracer_bow.fire(testcase=self.payload, save_core=False)
 
         # Now we have to setup an angr project using the info we have in the archr environment.
