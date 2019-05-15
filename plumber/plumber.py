@@ -117,6 +117,8 @@ class Plumber(object):
 
         last_state = simgr.active[0]
 
+        #print(last_state)
+
         # If we have any kind of leak this is exploitable!
         self._exploitable = any(last_state.globals["leaks"])
 
