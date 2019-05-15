@@ -53,13 +53,8 @@ class Plumber(object):
 
         # Let's initialize all the leak_detector_decorators for all the function we are interested on.
         # We will automatize this based on a Plumber configuration file.
-
         printf.run = plumber.leak_detectors.printf.taint(printf.run)
         puts.run = plumber.leak_detectors.puts.taint(puts.run)
-
-        self.tainted_simproc = [printf, puts]
-
-
 
     def run(self):
 
