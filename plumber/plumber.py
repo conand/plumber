@@ -52,10 +52,17 @@ class Plumber(object):
         self.tracer_bow = archr.arsenal.QEMUTracerBow(self.target)
 
         # Let's initialize all the leak_detector_decorators for all the function we are interested on.
+        # We will automatize this based on a Plumber configuration file.
+
         printf.run = plumber.leak_detectors.printf.taint(printf.run)
         puts.run = plumber.leak_detectors.puts.taint(puts.run)
 
+        self.tainted_simproc = [printf, puts]
+
+
+
     def run(self):
+
         r = self.tracer_bow.fire(testcase=self.payload, save_core=False)
 
         # Now we have to setup an angr project using the info we have in the archr environment.
@@ -80,6 +87,10 @@ class Plumber(object):
         for sensitive_target in self.sensitive:
             sensitive_target.taint_state(initial_state)
 
+        # Initialize the global list of leaks detected!
+        # This list will be populated by the leak_detectors
+        initial_state.globals["leaks"] = ()
+
         simgr = self.project.factory.simulation_manager(
             initial_state,
             save_unsat=False,
@@ -96,8 +107,11 @@ class Plumber(object):
         except Exception:  # remember to check the "No more successors bug"
             pass
 
+        last_state = simgr.active[0]
+
         # If we have any kind of leak this is exploitable!
-        self._exploitable = any(leaks.values())
+        self._exploitable = any(last_state.globals["leaks"])
+
 
     def exploitable(self):
         return self._exploitable

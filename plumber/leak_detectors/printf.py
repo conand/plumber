@@ -14,6 +14,7 @@ def taint(fn):
         if data_value.symbolic:
             # leaks['printf'] = True  # registering the leak
             print("Leak of sensitive data detected! {}".format(data_value))
+            current_state.globals["leaks"] = current_state.globals["leaks"] + (__name__,)
 
         fn(*args, **kwargs) # execute normal SimProc.
 
