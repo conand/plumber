@@ -4,20 +4,7 @@ import archr
 from angr import sim_options as so
 from angr.procedures.stubs.format_parser import FormatParser
 
-
-# List of SimProc we want to taint, we want to this dynamically based on
-# some sort of Plumber config file.
-from angr.procedures.libc.printf import printf
-from angr.procedures.libc.fprintf import fprintf
-from angr.procedures.libc.sprintf import sprintf
-from angr.procedures.libc.snprintf import snprintf
-from angr.procedures.libc.vsnprintf import vsnprintf
-from angr.procedures.libc.puts import puts
-from angr.procedures.libc.fputs import fputs
-
-from angr.procedures.posix.send import send
-
-from .write_replay_helper import setup_plumber_tracking_state
+from .write_replay_helper import setup_plumber_state, setup_plumber_pointer_state
 
 _l = logging.getLogger(name=__name__)
 _l.setLevel(logging.WARNING)
@@ -42,10 +29,11 @@ class Plumber(object):
      its environment and tuning up the QEMUTracer exploration technique according to what we are looking for.
 
     '''
-    def __init__(self, target, payload, sensitive):
+    def __init__(self, target, payload, sensitive, sensitive_pointers=False):
         self.target = target  # type: archr.targets.Target
         self.payload = payload  # interesting input that we believe will trigger the memory leak.
         self.sensitive = sensitive  # specification of what is considered sensitive in our binary ( f.i. argv[2], access to a file called /token, ... )
+        self.sensitive_pointers = sensitive_pointers  # if true, all pointers are made symbolic ~> plumber detects memory leaks
 
         # flag to detect if we generated a valid leak and so if we should generate a pov
         self._exploitable = False
@@ -83,9 +71,14 @@ class Plumber(object):
             hierarchy=False,
         )
 
-        # Using the tracer exploration technique by following the QEMU trace
+        if self.sensitive_pointers:
+            plumber_state_setup_func = setup_plumber_pointer_state
+        else:
+            plumber_state_setup_func = setup_plumber_state
+
+        # Using the tracer exploration technique by following the RR trace
         # collected before.
-        self._t = r.tracer_technique(keep_predecessors=2, state_setup_func=setup_plumber_tracking_state)
+        self._t = r.tracer_technique(keep_predecessors=2, state_setup_func=plumber_state_setup_func)
         simgr.use_technique(self._t)
 
         # Now, since we want to detect leaks in the output of the program, we have to define as symbolic
@@ -101,7 +94,6 @@ class Plumber(object):
         #     pass
 
         last_state = simgr.traced[0]
-        import ipdb; ipdb.set_trace()
 
         #print(last_state)
 
