@@ -17,8 +17,7 @@ from angr.procedures.libc.fputs import fputs
 
 from angr.procedures.posix.send import send
 
-
-import plumber.leak_detectors
+from .write_replay_helper import setup_plumber_tracking_state
 
 _l = logging.getLogger(name=__name__)
 _l.setLevel(logging.WARNING)
@@ -54,21 +53,7 @@ class Plumber(object):
         # First thing, let's create a trace of the program under the concrete input we received.
         # If there are any command line arguments to the program they have been included during the
         # Creation of the target.
-        self.tracer_bow = archr.arsenal.QEMUTracerBow(self.target)
-
-        # Let's initialize all the leak_detector_decorators for all the function we are interested on.
-        # TODO: We will automatize this based on a Plumber configuration file.
-        printf.run = plumber.leak_detectors.printf.taint(printf.run)
-        puts.run = plumber.leak_detectors.puts.taint(puts.run)
-
-        # TODO: implement these leak_detectors
-        send.run = plumber.leak_detectors.send.taint(send.run)
-        fprintf.run = plumber.leak_detectors.fprintf.taint(fprintf.run)
-        sprintf.run = plumber.leak_detectors.sprintf.taint(sprintf.run)
-        snprintf.run = plumber.leak_detectors.snprintf.taint(snprintf.run)
-        vsnprintf.run = plumber.leak_detectors.vsnprintf.taint(vsnprintf.run)
-        fputs.run = plumber.leak_detectors.fputs.taint(fputs.run)
-
+        self.tracer_bow = archr.arsenal.RRTracerBow(self.target)
 
     def run(self):
         r = self.tracer_bow.fire(testcase=self.payload, save_core=False)
@@ -88,13 +73,6 @@ class Plumber(object):
             remove_options=remove_options,
         )
 
-        # Now, since we want to detect leaks in the output of the program, we have to define as symbolic
-        # the data that we received as Sensitive from REX.
-        # This is done using the taint_state method of the SensitiveTarget object, that will make sure
-        # that something sensitive will be marked as symbolic.
-        for sensitive_target in self.sensitive:
-            sensitive_target.taint_state(initial_state)
-
         # Initialize the global tuple of leaks detected!
         # This will be populated by the leak_detectors decorators.
         initial_state.globals["leaks"] = ()
@@ -107,15 +85,23 @@ class Plumber(object):
 
         # Using the tracer exploration technique by following the QEMU trace
         # collected before.
-        self._t = r.tracer_technique(keep_predecessors=2)
+        self._t = r.tracer_technique(keep_predecessors=2, state_setup_func=setup_plumber_tracking_state)
         simgr.use_technique(self._t)
 
-        try:
-            simgr.run()
-        except Exception:  # remember to check the "No more successors bug"
-            pass
+        # Now, since we want to detect leaks in the output of the program, we have to define as symbolic
+        # the data that we received as Sensitive from REX.
+        # This is done using the taint_state method of the SensitiveTarget object, that will make sure
+        # that something sensitive will be marked as symbolic.
+        for sensitive_target in self.sensitive:
+            sensitive_target.taint_state(simgr.one_active)
 
-        last_state = simgr.active[0]
+        # try:
+        simgr.run()
+        # except Exception:  # remember to check the "No more successors bug"
+        #     pass
+
+        last_state = simgr.traced[0]
+        import ipdb; ipdb.set_trace()
 
         #print(last_state)
 
@@ -134,9 +120,9 @@ class Plumber(object):
 from subprocess import Popen, PIPE
 
 def main():
-    p = Popen(["docker", "run", "-i", "{}" ], stdin=PIPE, stdout=PIPE)               
+    p = Popen(["docker", "run", "-i", "{}" ], stdin=PIPE, stdout=PIPE)
     out = p.communicate(input={})[0]
-    
+
     print('PRIVDATA=' + out.decode('utf-8').split("\\n")[-1])
 
 if __name__ == '__main__':

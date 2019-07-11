@@ -30,15 +30,19 @@ class ArgvSensitiveTarget(SensitiveTarget):
         self.argv_idx = argv_idx
 
     def taint_state(self, state):
-        argv_start_address = state.se.eval(state.posix.argv)
-        target_argv_pointer = argv_start_address + state.arch.bytes * self.argv_idx
-        target_argv_address = state.mem[target_argv_pointer].long.concrete
-        original_argv_size = len(state.mem[target_argv_address].string.concrete)
+        '''
+        state is in _start and the stack points to argv
+        '''
+        target_argv_address = state.mem[state.regs.rsp + 8 + (self.argv_idx * 8)].long.concrete # .resolved
+        original_argv_value = state.mem[target_argv_address].string.concrete
+        original_argv_size = len(original_argv_value)
 
         _l.debug("Storing sensitive data at {}, size of sensitive data is {}".format(hex(target_argv_address), 8*original_argv_size))
 
-        state.memory.store(target_argv_address, claripy.BVS('sensitive_argv{}'.format(self.argv_idx), 8*original_argv_size) )
-
+        sym_sensitive_argv = claripy.BVS('sensitive_argv{}'.format(self.argv_idx), 8 * original_argv_size)
+        state.memory.store(target_argv_address, sym_sensitive_argv)
+        # preconstrain sensitive data to original value
+        state.preconstrainer.preconstrain(original_argv_value, sym_sensitive_argv)
 
 
 class FileSensitiveTarget(SensitiveTarget):
