@@ -5,9 +5,10 @@ from angr import sim_options as so
 from angr.procedures.stubs.format_parser import FormatParser
 
 from .write_replay_helper import setup_plumber_state, setup_plumber_pointer_state
+from .sensitive_targets import AllPointersSensitiveTarget
 
 _l = logging.getLogger(name=__name__)
-_l.setLevel(logging.WARNING)
+_l.setLevel(logging.INFO)
 
 # run the tracer, grabbing the crash state
 remove_options = {so.TRACK_REGISTER_ACTIONS, so.TRACK_TMP_ACTIONS, so.TRACK_JMP_ACTIONS,
@@ -29,11 +30,10 @@ class Plumber(object):
      its environment and tuning up the QEMUTracer exploration technique according to what we are looking for.
 
     '''
-    def __init__(self, target, payload, sensitive, sensitive_pointers=False):
+    def __init__(self, target, payload, sensitive):
         self.target = target  # type: archr.targets.Target
         self.payload = payload  # interesting input that we believe will trigger the memory leak.
         self.sensitive = sensitive  # specification of what is considered sensitive in our binary ( f.i. argv[2], access to a file called /token, ... )
-        self.sensitive_pointers = sensitive_pointers  # if true, all pointers are made symbolic ~> plumber detects memory leaks
 
         # flag to detect if we generated a valid leak and so if we should generate a pov
         self._exploitable = False
@@ -71,7 +71,8 @@ class Plumber(object):
             hierarchy=False,
         )
 
-        if self.sensitive_pointers:
+        if any([isinstance(sensitive_target, AllPointersSensitiveTarget) for sensitive_target in self.sensitive]):
+            _l.info("All pointers will be made symbolic (this can be slow!)")
             plumber_state_setup_func = setup_plumber_pointer_state
         else:
             plumber_state_setup_func = setup_plumber_state

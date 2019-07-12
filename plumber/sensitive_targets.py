@@ -20,10 +20,10 @@ class SensitiveTarget(ABC):
         pass
 
 
-'''
- Set symbolic the arguments passed to the binary.
-'''
 class ArgvSensitiveTarget(SensitiveTarget):
+    '''
+    Set symbolic the arguments passed to the binary.
+    '''
 
     def __init__(self, argv_idx):
         super().__init__()
@@ -43,6 +43,20 @@ class ArgvSensitiveTarget(SensitiveTarget):
         state.memory.store(target_argv_address, sym_sensitive_argv)
         # preconstrain sensitive data to original value
         state.preconstrainer.preconstrain(original_argv_value, sym_sensitive_argv)
+
+
+class AllPointersSensitiveTarget(SensitiveTarget):
+    '''
+    Set all the pointers symbolic (this significantly slows down the execution!)
+    '''
+
+    def __init__(self):
+        super().__init__()
+
+    def taint_state(self, state):
+        # we don't need to the taint the state, making all pointers symbolic
+        # is enabled in the trracer
+        pass
 
 
 class FileSensitiveTarget(SensitiveTarget):
