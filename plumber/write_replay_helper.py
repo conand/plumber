@@ -26,12 +26,6 @@ def handle_write(replay_interface):
 
 class PlumberReplayHelper(AngrTraceReplayHelper):
 
-    '''
-    @angr.SimStatePlugin.memo
-    def copy(self, memo):
-        return PlumberReplayHelper(self.trrace)
-    '''
-
     def _handle_syscall_write(self, name, replay_interface, enter_frame, exit_frame):
         retval = super()._handle_syscall_write(name, replay_interface, enter_frame, exit_frame)
         handle_write(replay_interface)
@@ -40,20 +34,16 @@ class PlumberReplayHelper(AngrTraceReplayHelper):
 
 class PlumberPointerReplayHelper(SymbolicPointerReplayHelper):
 
-    '''
-    @angr.SimStatePlugin.memo
-    def copy(self, memo):
-        return PlumberPointerReplayHelper(self.trrace)
-    '''
-
     def _handle_syscall_write(self, name, replay_interface, enter_frame, exit_frame):
-        import ipdb; ipdb.set_trace()
+        # import ipdb; ipdb.set_trace()
         retval = super()._handle_syscall_write(name, replay_interface, enter_frame, exit_frame)
         handle_write(replay_interface)
         return retval
 
+
 def setup_plumber_state(trace_dir, state, **kwargs):
     return setup_generic_state(trace_dir, state, AngrStateManipulationInterface, PlumberReplayHelper)
+
 
 def setup_plumber_pointer_state(trace_dir, state, **kwargs):
     return setup_generic_state(trace_dir, state, SymbolicPointerTrackingManipulationInterface, PlumberPointerReplayHelper)
