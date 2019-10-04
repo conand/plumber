@@ -42,7 +42,7 @@ class ArgvSensitiveTarget(SensitiveTarget):
         sym_sensitive_argv = claripy.BVS('sensitive_argv{}'.format(self.argv_idx), 8 * original_argv_size)
         state.memory.store(target_argv_address, sym_sensitive_argv)
         # preconstrain sensitive data to original value
-        state.preconstrainer.preconstrain(original_argv_value, sym_sensitive_argv)
+        state.preconstrainer.preconstrain(sym_sensitive_argv, original_argv_value)
 
 
 class AllPointersSensitiveTarget(SensitiveTarget):
