@@ -15,7 +15,7 @@ remove_options = {so.TRACK_REGISTER_ACTIONS, so.TRACK_TMP_ACTIONS, so.TRACK_JMP_
                   so.ACTION_DEPS, so.TRACK_CONSTRAINT_ACTIONS, so.LAZY_SOLVES, so.SIMPLIFY_MEMORY_WRITES,
                   so.ALL_FILES_EXIST}
 add_options = {so.MEMORY_SYMBOLIC_BYTES_MAP, so.TRACK_ACTION_HISTORY, so.CONCRETIZE_SYMBOLIC_WRITE_SIZES,
-               so.CONCRETIZE_SYMBOLIC_FILE_READ_SIZES, so.TRACK_MEMORY_ACTIONS}
+               so.CONCRETIZE_SYMBOLIC_FILE_READ_SIZES, so.TRACK_MEMORY_ACTIONS, so.TRACK_SOLVER_VARIABLES}
 
 
 class Plumber(object):
@@ -44,7 +44,10 @@ class Plumber(object):
         self.tracer_bow = archr.arsenal.RRTracerBow(self.target)
 
     def run(self):
-        r = self.tracer_bow.fire(testcase=self.payload, save_core=False)
+        if self.payload:
+            r = self.tracer_bow.fire(testcase=self.payload, save_core=False)
+        else:
+            r = self.tracer_bow.fire(save_core=False)
 
         # Now we have to setup an angr project using the info we have in the archr environment.
         dsb = archr.arsenal.DataScoutBow(self.target)
@@ -101,12 +104,14 @@ class Plumber(object):
         # If we have any kind of leak this is exploitable!
         self._exploitable = any(last_state.globals["leaks"])
 
+        if self._exploitable:
+            self._leaked = last_state.globals["leaks"][-1]
+
 
     def exploitable(self):
         return self._exploitable
 
     def pov(self):
-
         if isinstance(self.target, archr.targets.DockerImageTarget):
 
             pov = """

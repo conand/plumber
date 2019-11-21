@@ -21,7 +21,25 @@ def handle_write(replay_interface):
 
     if output.symbolic:
         l.info("Leak of sensitive data detected in write: {}".format(output))
-        s.globals["leaks"] = s.globals["leaks"] + ("write",)
+
+        start_idx = 0
+        end_idx = 0
+        for i in range(write_len):
+            if s.memory.load(buff_addr.to_claripy() + i, 1).symbolic:
+                start_idx = i
+                break
+
+        '''
+        for i in range(start_idx, write_len):
+            if not s.memory.load(buff_addr.to_claripy() + i, 1).symbolic:
+                end_idx = i
+                break
+        '''
+
+        sym_var = s.memory.load(buff_addr.to_claripy() + start_idx, 8)
+        leaked_addr = hex(s.solver.eval(sym_var.reversed))
+
+        s.globals["leaks"] = s.globals["leaks"] + ("write", leaked_addr)
 
 
 class PlumberReplayHelper(AngrTraceReplayHelper):
